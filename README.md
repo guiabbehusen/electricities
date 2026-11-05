@@ -16,7 +16,7 @@ A aplicação usa HTML, CSS e JavaScript e pode ser hospedada como um site está
 
 ## Dados
 
-- Rotas calculadas pelo serviço OSRM do FOSSGIS e mapa-base do OpenStreetMap.
+- Rotas calculadas com OSRM, usando o serviço do FOSSGIS e o servidor oficial do projeto como alternativa em caso de falha. Mapa-base do OpenStreetMap.
 - Estações consultadas no OpenStreetMap, com um catálogo complementar de 721 pontos públicos brasileiros dos colaboradores do Open Charge Map, exportado em abril de 2026.
 - Cada estação tem um link para seu cadastro de origem. As tarifas aparecem quando informadas na fonte. A disponibilidade em tempo real e a tarifa vigente dependem da operadora.
 - Os cálculos usam as especificações publicadas dos veículos. O tempo exibido é um mínimo teórico baseado na energia necessária e na potência nominal. O custo estimado depende da tarifa por kWh cadastrada.

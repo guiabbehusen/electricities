@@ -61,7 +61,7 @@
 
   const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   const decimal = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-  const normalize = value => value.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const normalize = value => value.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').toLowerCase();
   const distance = km => `${decimal.format(Math.round(km))} km`;
   const minutes = value => {
     const rounded = Math.ceil(value);
@@ -386,14 +386,26 @@
   }
 
   async function fetchData(url, signal, timeout, options) {
-    const response = await fetch(url, { ...options, signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]) });
-    if (!response.ok) throw new Error('Serviço indisponível');
-    return response.json();
+    const request = new AbortController();
+    const abortRequest = () => request.abort();
+    if (signal.aborted) abortRequest();
+    else signal.addEventListener('abort', abortRequest, { once: true });
+    const timer = setTimeout(abortRequest, timeout);
+    try {
+      const response = await fetch(url, { ...options, signal: request.signal });
+      if (!response.ok) throw new Error('Serviço indisponível');
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abortRequest);
+    }
   }
 
   function getLocalPlace(query) {
-    const key = normalize(query);
-    return cities.find(city => [normalize(city.name), normalize(city.name.split(',')[0])].includes(key));
+    const key = normalize(query).replace(/[\s,/-]+/g, ' ');
+    return cities.find(city =>
+      [city.name, city.name.split(',')[0]].some(name => normalize(name).replace(/[\s,/-]+/g, ' ') === key)
+    );
   }
 
   async function resolvePlace(query, signal) {
@@ -402,11 +414,18 @@
     if (local) return local;
 
     const params = new URLSearchParams({ q: query, countrycode: 'BR', limit: '5' });
-    const data = await fetchData(`https://photon.komoot.io/api/?${params}`, signal, 7000);
+    let data;
+    try {
+      data = await fetchData(`https://photon.komoot.io/api/?${params}`, signal, 12000);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      throw new Error(`A busca de locais está indisponível para “${query}”. Tente novamente ou selecione uma cidade sugerida.`);
+    }
     const result = data.features?.find(feature =>
       feature.properties?.countrycode === 'BR' &&
       feature.geometry?.type === 'Point' &&
-      feature.geometry.coordinates?.length === 2
+      feature.geometry.coordinates?.length === 2 &&
+      feature.geometry.coordinates.every(Number.isFinite)
     );
     if (!result) throw new Error(`Não encontrei “${query}” no Brasil. Informe a cidade e o estado.`);
     const [longitude, latitude] = result.geometry.coordinates;
@@ -420,13 +439,33 @@
     const coordinates = [origin, destination].map(place => `${place.longitude},${place.latitude}`).join(';');
     const cached = state.routeCache.get(coordinates);
     if (cached) return cached;
-    const data = await fetchData(
-      `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coordinates}?alternatives=true&geometries=geojson&overview=full&steps=false`,
-      signal,
-      9000
-    );
-    const routes = (data.routes ?? []).filter(route => route.geometry?.coordinates?.length > 1).slice(0, 3);
-    if (!routes.length) throw new Error('Nenhuma rota de carro foi encontrada entre os locais informados.');
+    let routes = [];
+    let receivedResponse = false;
+    for (const service of [
+      'https://routing.openstreetmap.de/routed-car',
+      'https://router.project-osrm.org'
+    ]) {
+      try {
+        const data = await fetchData(
+          `${service}/route/v1/driving/${coordinates}?alternatives=true&geometries=geojson&overview=full&steps=false`,
+          signal,
+          15000
+        );
+        receivedResponse = true;
+        routes = (Array.isArray(data.routes) ? data.routes : [])
+          .filter(route => route.geometry?.coordinates?.length > 1 &&
+            Number.isFinite(route.distance) && Number.isFinite(route.duration))
+          .slice(0, 3);
+        if (routes.length) break;
+      } catch (error) {
+        if (signal.aborted) throw error;
+      }
+    }
+    if (!routes.length) {
+      throw new Error(receivedResponse
+        ? 'Nenhuma rota de carro foi encontrada entre os locais informados.'
+        : 'Os serviços de rotas estão indisponíveis. Tente novamente em instantes.');
+    }
     const results = routes.map((route, index) => {
       const summary = route.legs?.map(leg => leg.summary).filter(Boolean).join(' · ');
       return {
@@ -606,7 +645,7 @@
     } catch (error) {
       if (signal.aborted) return;
       const detail = error?.message ?? '';
-      const message = /^(Não encontrei|Nenhuma rota|Escolha uma origem)/.test(detail)
+      const message = /^(Não encontrei|Nenhuma rota|Escolha uma origem|A busca de locais|Os serviços de rotas)/.test(detail)
         ? detail : 'A consulta de rota está indisponível. Tente novamente.';
       const previous = state.selectedRoute ? ' O mapa mantém a última rota consultada.' : '';
       showStatus(message + previous, 'error');
