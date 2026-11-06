@@ -47,6 +47,7 @@
     destination: null,
     routes: [],
     stationSource: [],
+    liveOpenChargeMap: [],
     stations: [],
     selectedRoute: null,
     activeStation: null,
@@ -67,6 +68,11 @@
     const rounded = Math.ceil(value);
     const remainder = rounded % 60;
     return rounded >= 60 ? `${Math.floor(rounded / 60)} h${remainder ? ` ${remainder} min` : ''}` : `${rounded} min`;
+  };
+  const sourceDate = value => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : null;
   };
 
   function element(tag, className, text) {
@@ -167,13 +173,40 @@
     }).sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
+  function combineStationSources() {
+    const byId = new Map();
+    for (const station of [...state.stationSource, ...stationSnapshot]) {
+      const previous = byId.get(station.id);
+      if (!previous || (!Number.isFinite(previous.pricePerKwh) && Number.isFinite(station.pricePerKwh))) {
+        byId.set(station.id, station);
+      }
+    }
+    for (const station of state.liveOpenChargeMap) byId.set(station.id, station);
+    const byConnection = new Map();
+    for (const station of byId.values()) {
+      const key = JSON.stringify([
+        Number(station.latitude.toFixed(6)), Number(station.longitude.toFixed(6)),
+        station.connector ?? null, station.powerKw ?? null
+      ]);
+      const previous = byConnection.get(key);
+      const knownPrice = Number.isFinite(station.pricePerKwh);
+      const previousKnownPrice = Number.isFinite(previous?.pricePerKwh);
+      const preferLiveRecord = station.isLive && !previous?.isLive;
+      const sameTier = Boolean(station.isLive) === Boolean(previous?.isLive);
+      if (!previous || preferLiveRecord || (sameTier && !previousKnownPrice && knownPrice)) {
+        byConnection.set(key, station);
+      }
+    }
+    return [...byConnection.values()];
+  }
+
   function chargingEstimate(station, vehicle, from, to) {
     const energy = Math.max(0, (to - from) * vehicle.capacity);
     const vehicleLimit = station.current === 'DC' ? vehicle.dcKw : vehicle.acKw;
     const ratedPower = Math.min(vehicleLimit, station.powerKw ?? 0);
     return {
       estimatedMinutes: energy > 0 && ratedPower > 0 ? energy / ratedPower * 60 : null,
-      estimatedCost: station.pricePerKwh === null ? null : energy * station.pricePerKwh
+      estimatedCost: Number.isFinite(station.pricePerKwh) ? energy * station.pricePerKwh : null
     };
   }
 
@@ -269,11 +302,12 @@
       if (station.access === 'notice') tags.append(element('span', null, 'Requer aviso prévio'));
 
       const metrics = element('div', 'station-metrics');
-      const price = station.pricePerKwh === null ? 'Não informada' : station.pricePerKwh === 0 ? 'Grátis' : money.format(station.pricePerKwh);
+      const price = Number.isFinite(station.pricePerKwh) ? money.format(station.pricePerKwh)
+        : station.tariffDetails?.length ? 'Veja as condições' : 'Não informada';
       const chargingTime = station.estimatedMinutes === null ? 'Indisponível' : minutes(station.estimatedMinutes);
       const cost = station.estimatedCost === null ? 'Indisponível' : money.format(station.estimatedCost);
       metrics.append(
-        metric('Tarifa cadastrada / kWh', price),
+        metric(Number.isFinite(station.pricePerKwh) ? 'Tarifa cadastrada / kWh' : 'Tarifa publicada', price),
         metric(`Tempo mínimo teórico · ${station.fromCharge}–${station.toCharge}%`, chargingTime),
         metric('Custo de energia estimado', cost)
       );
@@ -281,8 +315,33 @@
       select.type = 'button';
       select.setAttribute('aria-pressed', String(active));
       card.append(top, tags, metrics, select);
+      if (station.tariffDetails?.length) {
+        const details = element('div', 'station-tariff-details');
+        details.append(element('strong', null, 'Condições de cobrança publicadas'));
+        for (const term of station.tariffDetails) {
+          const line = element('p');
+          line.append(element('span', null, `${term.label} · `), term.value);
+          details.append(line);
+        }
+        card.append(details);
+      }
       if (station.osmUrl) {
         card.append(externalLink('Ver no OpenStreetMap ↗', station.osmUrl, 'station-source'));
+      } else if (station.isLive && station.ocmUrl) {
+        card.append(externalLink('Open Charge Map · consulta ao vivo ↗', station.ocmUrl, 'station-source'));
+        const metadata = element('p', 'station-source-details');
+        const source = [
+          station.providerName,
+          station.providerLicense,
+          sourceDate(station.sourceUpdatedAt) ? `Cadastro atualizado em ${sourceDate(station.sourceUpdatedAt)}` : null,
+          sourceDate(station.lastVerifiedAt) ? `Cadastro verificado em ${sourceDate(station.lastVerifiedAt)}` : null,
+          sourceDate(station.fetchedAt) ? `Consultado em ${sourceDate(station.fetchedAt)}` : null
+        ].filter(Boolean);
+        metadata.textContent = source.join(' · ');
+        card.append(metadata);
+        if (/^https?:\/\//i.test(station.providerUrl ?? '')) {
+          card.append(externalLink('Fonte original ↗', station.providerUrl, 'station-source'));
+        }
       } else if (station.id.startsWith('ocm-')) {
         const stationUrl = `https://openchargemap.org/site/poi/details/${station.id.slice(4)}`;
         card.append(externalLink('Open Charge Map · base de abr/2026 ↗', stationUrl, 'station-source'));
@@ -317,8 +376,7 @@
     const vehicle = vehicles[vehicleInput.value];
     const charge = batteryInput?.valueAsNumber;
     const hasCharge = Number.isFinite(charge) && charge >= 0 && charge <= 100;
-    const fromOpenStreetMap = nearbyStations(route, state.stationSource);
-    const stations = fromOpenStreetMap.length ? fromOpenStreetMap : nearbyStations(route, stationSnapshot);
+    const stations = nearbyStations(route, combineStationSources());
     const plan = vehicle && hasCharge ? chargingPlan(route, stations, vehicle, charge / 100) : null;
     state.stations = stations.map(station => {
       const recommendation = plan?.get(station.id);
@@ -373,7 +431,7 @@
   function setResult({ origin, destination, routes }) {
     Object.assign(state, {
       origin, destination, routes, stationsPending: true, stationsUnavailable: false,
-      selectedRoute: routes[0].id, stationSource: [], activeStation: null
+      selectedRoute: routes[0].id, stationSource: [], liveOpenChargeMap: [], activeStation: null
     });
     const mapLabel = byId('map-mode')?.querySelector('span');
     if (mapLabel) mapLabel.textContent = 'MAPA DA ROTA';
@@ -393,7 +451,17 @@
     const timer = setTimeout(abortRequest, timeout);
     try {
       const response = await fetch(url, { ...options, signal: request.signal });
-      if (!response.ok) throw new Error('Serviço indisponível');
+      if (!response.ok) {
+        const error = new Error('Serviço indisponível');
+        error.status = response.status;
+        try {
+          const body = await response.json();
+          error.code = body.error?.code;
+        } catch {
+          // Some upstream services return an HTML error page.
+        }
+        throw error;
+      }
       return await response.json();
     } finally {
       clearTimeout(timer);
@@ -492,7 +560,10 @@
   }
 
   function stationPrice(tags) {
-    if (tags['charge:conditional'] || tags['fee:conditional'] || tags['charge:charging:conditional'] || tags['fee:charging:conditional']) return null;
+    const primaryKey = tags['charge:charging'] !== undefined ? 'charge:charging' : 'charge';
+    const extraTerms = Object.keys(tags).some(key =>
+      /^(?:charge|fee)(?::|$)/.test(key) && ![primaryKey, 'fee', 'fee:charging'].includes(key) && tags[key]);
+    if (extraTerms || (tags.fee === 'yes' && tags['fee:charging'] === 'no')) return null;
     const text = tags['charge:charging'] ?? tags.charge ?? '';
     const price = text.match(/^\s*(?:(?:BRL|R\$)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*(?:BRL|R\$))\s*(?:\/|per|por)\s*kWh\s*$/i);
     if (price) {
@@ -500,6 +571,23 @@
       return Number.isFinite(amount) ? amount : null;
     }
     return !text && (tags['fee:charging'] ?? tags.fee) === 'no' ? 0 : null;
+  }
+
+  function publishedTariffDetails(tags, pricePerKwh) {
+    if (Number.isFinite(pricePerKwh)) return [];
+    const labels = {
+      charge: 'Cobrança cadastrada',
+      'charge:charging': 'Cobrança de recarga',
+      'charge:conditional': 'Cobrança por horário ou condição',
+      'charge:charging:conditional': 'Condições da recarga',
+      fee: 'Cobrança informada',
+      'fee:charging': 'Cobrança pela recarga',
+      'fee:conditional': 'Condições de cobrança',
+      'fee:charging:conditional': 'Condições da cobrança de recarga'
+    };
+    return Object.entries(tags)
+      .filter(([key, value]) => /^(?:charge|fee)(?::|$)/.test(key) && value)
+      .map(([key, value]) => ({ label: labels[key] ?? key, value: String(value) }));
   }
 
   function parseStation(item) {
@@ -517,6 +605,7 @@
     const [socket, connector, current] = sockets.find(([type]) => hasSocket(type)) ?? [];
     const powerKw = stationPower(tags[`socket:${socket}:output`]);
     const street = [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(', ');
+    const pricePerKwh = stationPrice(tags);
     return {
       id: `osm-${type}-${id}`,
       name: tags.name ?? tags.operator ?? tags.brand ?? 'Estação de recarga',
@@ -525,7 +614,8 @@
       connector: connector ?? null,
       current: current ?? null,
       access: tags.access,
-      pricePerKwh: stationPrice(tags),
+      pricePerKwh,
+      tariffDetails: publishedTariffDetails(tags, pricePerKwh),
       osmUrl: `https://www.openstreetmap.org/${type}/${id}`
     };
   }
@@ -572,14 +662,15 @@
     const queries = routeBounds(routes).map(bounds => `nwr["amenity"="charging_station"](${bounds});`);
     const query = `[out:json][timeout:8];(${queries.join('')});out center;`;
     const cached = state.stationCache.get(query);
-    if (cached) return cached;
+    if (cached?.expiresAt > Date.now()) return cached.stations;
+    state.stationCache.delete(query);
     const params = new URLSearchParams({ data: query });
     for (const host of ['overpass-api.de', 'overpass.private.coffee']) {
       try {
         const data = await fetchData(`https://${host}/api/interpreter`, signal, 9000, { method: 'POST', body: params });
         if (!data.remark && Array.isArray(data.elements)) {
           const stations = data.elements.map(parseStation).filter(Boolean);
-          state.stationCache.set(query, stations);
+          state.stationCache.set(query, { stations, expiresAt: Date.now() + 5 * 60 * 1000 });
           return stations;
         }
       } catch (error) {
@@ -587,6 +678,34 @@
       }
     }
     throw new Error('Serviço de estações indisponível');
+  }
+
+  async function fetchLiveOpenChargeMap(routes, signal) {
+    const bounds = routes.reduce((area, route) => route.coordinates.reduce(extendBounds, area),
+      [Infinity, Infinity, -Infinity, -Infinity]);
+    const latitudeBuffer = 6 / 111.2;
+    const longitudeBuffer = latitudeBuffer / Math.cos((bounds[0] + bounds[2]) / 2 * Math.PI / 180);
+    const corridorBounds = [
+      bounds[0] - latitudeBuffer, bounds[1] - longitudeBuffer,
+      bounds[2] + latitudeBuffer, bounds[3] + longitudeBuffer
+    ];
+    const params = new URLSearchParams({ bbox: corridorBounds.map(value => value.toFixed(6)).join(',') });
+    const data = await fetchData(`/api/charging-stations?${params}`, signal, 15000);
+    if (!Array.isArray(data.stations)) throw new Error('Resposta da fonte gratuita indisponível');
+    return data;
+  }
+
+  function openChargeMapWarning(error) {
+    const warnings = {
+      source_not_configured: 'Open Charge Map ao vivo aguarda a configuração da chave gratuita.',
+      source_auth_failed: 'A fonte gratuita recusou a chave configurada.',
+      source_rate_limited: 'A fonte gratuita atingiu o limite temporário de consultas.',
+      source_timeout: 'A fonte gratuita excedeu o tempo de resposta.',
+      source_unavailable: 'A consulta gratuita ao vivo está indisponível.'
+    };
+    return warnings[error.code] ?? (error.status === 404
+      ? 'A consulta gratuita ao vivo requer o servidor da aplicação.'
+      : warnings.source_unavailable);
   }
 
   async function planTrip(event) {
@@ -628,20 +747,32 @@
       const snapshotAvailable = routes.some(route => nearbyStations(route, stationSnapshot).length > 0);
       showStatus('Rota consultada no OpenStreetMap. Buscando estações de recarga…', 'loading');
       if (snapshotAvailable) appendSnapshotSource();
-      let stations = [];
-      let stationsUnavailable = false;
-      try {
-        stations = await fetchStations(routes, signal);
-      } catch {
-        stationsUnavailable = true;
-      }
+      const [openStreetMap, openChargeMap] = await Promise.allSettled([
+        fetchStations(routes, signal),
+        fetchLiveOpenChargeMap(routes, signal)
+      ]);
       if (signal.aborted) return;
-      Object.assign(state, { stationSource: stations, stationsUnavailable, stationsPending: false });
+      const osmAvailable = openStreetMap.status === 'fulfilled';
+      const ocmAvailable = openChargeMap.status === 'fulfilled';
+      Object.assign(state, {
+        stationSource: osmAvailable ? openStreetMap.value : [],
+        liveOpenChargeMap: ocmAvailable ? openChargeMap.value.stations : [],
+        stationsUnavailable: !osmAvailable && !ocmAvailable,
+        stationsPending: false
+      });
       render();
-      showStatus(stationsUnavailable
-        ? 'Rota consultada no OpenStreetMap. A consulta de estações do OpenStreetMap está indisponível.'
-        : 'Rota e consulta de estações pelo OpenStreetMap.', stationsUnavailable ? 'warning' : 'live');
-      if (snapshotAvailable) appendSnapshotSource();
+      const sourceStatus = ['Rota consultada no OpenStreetMap.'];
+      sourceStatus.push(osmAvailable
+        ? 'Estações do OpenStreetMap consultadas.'
+        : 'A consulta de estações do OpenStreetMap está indisponível.');
+      sourceStatus.push(ocmAvailable
+        ? 'Open Charge Map consultado ao vivo.'
+        : openChargeMapWarning(openChargeMap.reason));
+      if (ocmAvailable && openChargeMap.value.limited) {
+        sourceStatus.push('O limite de pontos da consulta gratuita foi alcançado.');
+      }
+      showStatus(sourceStatus.join(' '), osmAvailable && ocmAvailable ? 'live' : 'warning');
+      if (state.stations.some(station => station.id.startsWith('ocm-') && !station.isLive)) appendSnapshotSource();
     } catch (error) {
       if (signal.aborted) return;
       const detail = error?.message ?? '';
@@ -649,7 +780,7 @@
         ? detail : 'A consulta de rota está indisponível. Tente novamente.';
       const previous = state.selectedRoute ? ' O mapa mantém a última rota consultada.' : '';
       showStatus(message + previous, 'error');
-      if (state.stations.some(station => station.id.startsWith('ocm-'))) appendSnapshotSource();
+      if (state.stations.some(station => station.id.startsWith('ocm-') && !station.isLive)) appendSnapshotSource();
       if (state.selectedRoute) {
         const mapLabel = byId('map-mode')?.querySelector('span');
         if (mapLabel) mapLabel.textContent = 'ÚLTIMA ROTA';
