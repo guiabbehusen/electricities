@@ -1,3 +1,5 @@
+import { applyPublishedTariffs } from './published-tariffs.mjs';
+
 (() => {
   'use strict';
 
@@ -72,7 +74,9 @@
   const sourceDate = value => {
     if (!value) return null;
     const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : null;
+    if (!Number.isFinite(date.getTime())) return null;
+    return /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? date.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : date.toLocaleString('pt-BR');
   };
 
   function element(tag, className, text) {
@@ -197,16 +201,25 @@
         byConnection.set(key, station);
       }
     }
-    return [...byConnection.values()];
+    return applyPublishedTariffs([...byConnection.values()]);
   }
 
   function chargingEstimate(station, vehicle, from, to) {
     const energy = Math.max(0, (to - from) * vehicle.capacity);
     const vehicleLimit = station.current === 'DC' ? vehicle.dcKw : vehicle.acKw;
     const ratedPower = Math.min(vehicleLimit, station.powerKw ?? 0);
+    const hasEnergyPrice = Number.isFinite(station.pricePerKwh);
+    const hasFixedFee = Number.isFinite(station.activationFee);
+    let estimatedCost = null;
+    if (station.canEstimateCost === true && (hasEnergyPrice || hasFixedFee)) {
+      estimatedCost = (hasEnergyPrice ? energy * station.pricePerKwh : 0) +
+        (hasFixedFee ? station.activationFee : 0);
+    } else if (station.canEstimateCost !== false && hasEnergyPrice) {
+      estimatedCost = energy * station.pricePerKwh;
+    }
     return {
       estimatedMinutes: energy > 0 && ratedPower > 0 ? energy / ratedPower * 60 : null,
-      estimatedCost: Number.isFinite(station.pricePerKwh) ? energy * station.pricePerKwh : null
+      estimatedCost
     };
   }
 
@@ -309,12 +322,24 @@
       metrics.append(
         metric(Number.isFinite(station.pricePerKwh) ? 'Tarifa cadastrada / kWh' : 'Tarifa publicada', price),
         metric(`Tempo mínimo teórico · ${station.fromCharge}–${station.toCharge}%`, chargingTime),
-        metric('Custo de energia estimado', cost)
+        metric('Subtotal estimado da recarga', cost)
       );
       const select = element('button', 'station-select', active ? 'Selecionada no mapa' : 'Ver no mapa');
       select.type = 'button';
       select.setAttribute('aria-pressed', String(active));
-      card.append(top, tags, metrics, select);
+      card.append(top, tags, metrics);
+      const fixedFee = Number.isFinite(station.activationFee);
+      const idleFee = Number.isFinite(station.idleFeePerMinute);
+      if (fixedFee || idleFee) {
+        const components = element('div', 'station-metrics station-charges');
+        if (fixedFee) components.append(metric('Taxa fixa / sessão', money.format(station.activationFee)));
+        if (idleFee) {
+          const grace = Number.isFinite(station.idleGraceMinutes) ? ` · após ${decimal.format(station.idleGraceMinutes)} min` : '';
+          components.append(metric(`Ociosidade / min${grace}`, money.format(station.idleFeePerMinute)));
+        }
+        card.append(components);
+      }
+      card.append(select);
       if (station.tariffDetails?.length) {
         const details = element('div', 'station-tariff-details');
         details.append(element('strong', null, 'Condições de cobrança publicadas'));
@@ -324,6 +349,16 @@
           details.append(line);
         }
         card.append(details);
+      }
+      if (/^https?:\/\//i.test(station.priceSourceUrl ?? '')) {
+        card.append(externalLink(`${station.priceSourceTitle || 'Fonte da tarifa'} ↗`, station.priceSourceUrl, 'station-source'));
+        const priceDates = [
+          sourceDate(station.pricePublishedAt) ? `Publicado em ${sourceDate(station.pricePublishedAt)}` : null,
+          sourceDate(station.priceEffectiveFrom) ? `Vigência a partir de ${sourceDate(station.priceEffectiveFrom)}` : null,
+          sourceDate(station.priceSourceCheckedAt) ? `Fonte conferida em ${sourceDate(station.priceSourceCheckedAt)}` : null,
+          typeof station.priceScope === 'string' ? station.priceScope : null
+        ].filter(Boolean);
+        if (priceDates.length) card.append(element('p', 'station-source-details', priceDates.join(' · ')));
       }
       if (station.osmUrl) {
         card.append(externalLink('Ver no OpenStreetMap ↗', station.osmUrl, 'station-source'));

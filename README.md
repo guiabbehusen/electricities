@@ -24,6 +24,10 @@ O arquivo `.env` é ignorado pelo Git. A chave fica no servidor. O endpoint `/ap
 
 O Open Charge Map publica cadastros comunitários e dados abertos importados de operadores. O campo original de tarifa pode incluir taxa de ativação, cobrança por tempo e condições. A interface preserva esse texto. Atualização de cadastro e verificação de tarifa são informações diferentes.
 
+As tarifas públicas conferidas nas operadoras ficam em `dist/published-tariffs.mjs`, com URL, data da conferência, vigência e identificadores exatos do local e do conector. A tabela da Volvo se aplica apenas aos pontos confirmados na lista publicada pela própria rede. Os preços do portal EVoltBR se aplicam aos conectores indicados, observados em 6 de novembro de 2026. São referências publicadas com data, que precisam de nova conferência quando a operadora altera suas condições.
+
+O leitor de tarifas reconhece valores por kWh em textos, separa AC e DC e inclui taxas fixas explícitas no subtotal quando a regra é completa. A cobrança por ociosidade é exibida com suas condições. Textos ambíguos continuam visíveis para consulta.
+
 ## Dados
 
 - Rotas calculadas com OSRM, usando o serviço do FOSSGIS e o servidor oficial do projeto como alternativa em caso de falha. Mapa-base do OpenStreetMap.

@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="./style.css?v=20261106">
   <script src="./map.js" defer></script>
   <script src="./stations-br.js" defer></script>
-  <script src="./planner.js?v=20261106-prices" defer></script>
+  <script src="./planner.js?v=20261106-sources" type="module"></script>
 </head>
 <body>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -98,13 +98,13 @@
       </div>
       <p id="planner-status" class="planner-status" role="status" aria-live="polite">Informe a origem e o destino para buscar rotas e estações cadastradas.</p>
       <div class="estimates" aria-label="Estimativas de recarga">
-        <div><svg class="icon" aria-hidden="true"><use href="#i-wallet"/></svg><span>Custo estimado da energia</span><strong id="route-cost">—</strong></div>
+        <div><svg class="icon" aria-hidden="true"><use href="#i-wallet"/></svg><span>Subtotal estimado da recarga</span><strong id="route-cost">—</strong></div>
         <div><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>Tempo mínimo teórico de recarga</span><strong id="route-charge">—</strong></div>
       </div>
       <p id="route-plan-note" class="planner-status"></p>
       <details class="estimate-sources">
         <summary>Como calculamos e quais dados usamos</summary>
-        <p>As paradas usam a autonomia Inmetro do modelo e a carga de saída selecionada. O tempo mínimo divide a energia necessária pela menor potência cadastrada entre o carro e o conector. A potência durante a sessão, a fila e as perdas podem aumentar a duração. O custo estimado multiplica a energia da bateria pela tarifa por kWh cadastrada. Taxas adicionais e perdas podem aumentar o valor cobrado.</p>
+        <p>As paradas usam a autonomia Inmetro do modelo e a carga de saída selecionada. O tempo mínimo divide a energia necessária pela menor potência cadastrada entre o carro e o conector. A potência durante a sessão, a fila e as perdas podem aumentar a duração. O subtotal usa a tarifa de energia e a taxa fixa publicadas quando a regra de cobrança está completa. A taxa de ociosidade é exibida separadamente. Condições por horário ou valores ambíguos ficam disponíveis para consulta no cartão.</p>
         <p>Referências dos veículos · <a href="https://www.byd.com/content/dam/byd-site/br/fichas-t%C3%A9cnicas---update-2025/agosto/Ficha_Tecnica_Dolphin_08_09_2025.pdf" target="_blank" rel="noopener noreferrer">BYD Dolphin</a> · <a href="https://www.byd.com/content/dam/byd-site/br/fichas-t%C3%A9cnicas---update-2025/agosto/Ficha_Tecnica_Dolphin_Mini_08_09_2025.pdf" target="_blank" rel="noopener noreferrer">BYD Dolphin Mini</a> · <a href="https://www.volvocars.com/br/media/press-releases/6BB4518DE21F69F5/" target="_blank" rel="noopener noreferrer">Autonomia Volvo EX30</a> · <a href="https://www.volvocars.com/images/cs/v3/assets/blt84e01a6904dbd2e8/bltdc4437137eec679e/681332dd924f57737f7a3d4b/EX30_Model_Year_25.5.pdf?branch=prod_alias" target="_blank" rel="noopener noreferrer">Ficha Volvo EX30 2025</a>.</p>
       </details>
     </section>
