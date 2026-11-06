@@ -2,7 +2,8 @@
 // the identified location/connector, with its original source and effective date.
 const volvoLocations = new Set([
   203264, 204433, 260426, 264456, 299167, 299175, 299177, 299178, 299236,
-  299237, 300112, 302217, 311522, 460059, 460141, 460616, 461236, 470705, 472977
+  299237, 300112, 302217, 311522, 460059, 460141, 460616, 461236, 470705, 472977,
+  481257
 ].map(id => `ocm-${id}`));
 
 const volvoSource = 'https://www.volvocars.com/br/media/press-releases/BC28C2E96CE1476C/';
