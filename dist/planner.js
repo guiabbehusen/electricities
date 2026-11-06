@@ -328,7 +328,7 @@
       if (station.osmUrl) {
         card.append(externalLink('Ver no OpenStreetMap ↗', station.osmUrl, 'station-source'));
       } else if (station.isLive && station.ocmUrl) {
-        card.append(externalLink('Open Charge Map · consulta ao vivo ↗', station.ocmUrl, 'station-source'));
+        card.append(externalLink('Open Charge Map · API ↗', station.ocmUrl, 'station-source'));
         const metadata = element('p', 'station-source-details');
         const source = [
           station.providerName,
@@ -697,14 +697,14 @@
 
   function openChargeMapWarning(error) {
     const warnings = {
-      source_not_configured: 'Open Charge Map ao vivo aguarda a configuração da chave gratuita.',
+      source_not_configured: 'A API do Open Charge Map aguarda a configuração da chave gratuita.',
       source_auth_failed: 'A fonte gratuita recusou a chave configurada.',
       source_rate_limited: 'A fonte gratuita atingiu o limite temporário de consultas.',
       source_timeout: 'A fonte gratuita excedeu o tempo de resposta.',
-      source_unavailable: 'A consulta gratuita ao vivo está indisponível.'
+      source_unavailable: 'A consulta à API gratuita está indisponível.'
     };
     return warnings[error.code] ?? (error.status === 404
-      ? 'A consulta gratuita ao vivo requer o servidor da aplicação.'
+      ? 'A consulta à API gratuita requer o servidor da aplicação.'
       : warnings.source_unavailable);
   }
 
@@ -766,7 +766,7 @@
         ? 'Estações do OpenStreetMap consultadas.'
         : 'A consulta de estações do OpenStreetMap está indisponível.');
       sourceStatus.push(ocmAvailable
-        ? 'Open Charge Map consultado ao vivo.'
+        ? 'Open Charge Map consultado pela API.'
         : openChargeMapWarning(openChargeMap.reason));
       if (ocmAvailable && openChargeMap.value.limited) {
         sourceStatus.push('O limite de pontos da consulta gratuita foi alcançado.');
