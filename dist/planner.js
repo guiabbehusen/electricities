@@ -328,7 +328,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       select.type = 'button';
       select.setAttribute('aria-pressed', String(active));
       card.append(top, tags, metrics);
-      const fixedFee = Number.isFinite(station.activationFee);
+      const fixedFee = Number.isFinite(station.activationFee) && station.activationFee > 0;
       const idleFee = Number.isFinite(station.idleFeePerMinute);
       if (fixedFee || idleFee) {
         const components = element('div', 'station-metrics station-charges');
