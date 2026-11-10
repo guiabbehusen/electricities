@@ -1,4 +1,6 @@
 import { applyPublishedTariffs } from './published-tariffs.mjs';
+import { applyTariffEstimates } from './tariff-estimates.mjs';
+import { vehicles } from './vehicles.mjs';
 
 (() => {
   'use strict';
@@ -16,14 +18,6 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   const status = byId('planner-status');
   const routeMap = byId('route-map');
   const submit = form.querySelector('[type="submit"]');
-
-  // Published battery capacity, PBEV/Inmetro range, and vehicle charging limits.
-  const vehicles = {
-    dolphin: { name: 'BYD Dolphin', capacity: 44.9, rangeKm: 291, dcKw: 60, acKw: 6.6 },
-    'dolphin-mini': { name: 'BYD Dolphin Mini', capacity: 38, rangeKm: 280, dcKw: 40, acKw: 6.6 },
-    ex30: { name: 'Volvo EX30 Single Motor 2025', capacity: 49, rangeKm: 250, dcKw: 134, acKw: 11 },
-    'ex30-er': { name: 'Volvo EX30 Extended Range 2025', capacity: 65, rangeKm: 338, dcKw: 153, acKw: 11 }
-  };
 
   const cities = [
     { name: 'São Paulo, SP', latitude: -23.5505, longitude: -46.6333 },
@@ -53,6 +47,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     stations: [],
     selectedRoute: null,
     activeStation: null,
+    visibleStationCount: 24,
     stationsPending: false,
     stationsUnavailable: false,
     pending: null,
@@ -60,7 +55,18 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     routeCache: new Map(),
     places: new Map()
   };
-  const stationSnapshot = window.EletricitiesStationSnapshot ?? [];
+  let stationSnapshot = window.EletricitiesStationSnapshot ?? [];
+  let snapshotLoading;
+  let combinedSourceCache;
+  let corridorCache;
+  async function loadStationSnapshot() {
+    if (stationSnapshot.length) return stationSnapshot;
+    snapshotLoading ??= import('./stations-br.js').then(() => {
+      stationSnapshot = window.EletricitiesStationSnapshot ?? [];
+      return stationSnapshot;
+    }).catch(() => []);
+    return snapshotLoading;
+  }
 
   const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   const decimal = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
@@ -76,7 +82,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return null;
     return /^\d{4}-\d{2}-\d{2}$/.test(value)
-      ? date.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : date.toLocaleString('pt-BR');
+      ? date.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   };
 
   function element(tag, className, text) {
@@ -106,13 +112,8 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
 
   function appendSnapshotSource() {
     status.append(
-      ' Pontos do catálogo de abril de 2026 são dos ',
-      externalLink('colaboradores do Open Charge Map', 'https://github.com/openchargemap/ocm-export/tree/8e3bedca48ca94807d96b2f5e7ee02cffe63ae54/data/BR'),
-      ' (dados filtrados, ',
-      externalLink('CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'),
-      ', ',
-      externalLink('termos de uso', 'https://www.openchargemap.org/about/terms'),
-      ').'
+      ' Catálogo complementar: abr/2026. ',
+      externalLink('Fontes e atualização', '/sobre-os-dados/')
     );
   }
 
@@ -178,6 +179,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   }
 
   function combineStationSources() {
+    if (combinedSourceCache?.osm === state.stationSource && combinedSourceCache.ocm === state.liveOpenChargeMap && combinedSourceCache.snapshot === stationSnapshot) return combinedSourceCache.stations;
     const byId = new Map();
     for (const station of [...state.stationSource, ...stationSnapshot]) {
       const previous = byId.get(station.id);
@@ -201,7 +203,9 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
         byConnection.set(key, station);
       }
     }
-    return applyPublishedTariffs([...byConnection.values()]);
+    const stations = applyTariffEstimates(applyPublishedTariffs([...byConnection.values()]));
+    combinedSourceCache = { osm: state.stationSource, ocm: state.liveOpenChargeMap, snapshot: stationSnapshot, stations };
+    return stations;
   }
 
   function chargingEstimate(station, vehicle, from, to) {
@@ -219,7 +223,8 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     }
     return {
       estimatedMinutes: energy > 0 && ratedPower > 0 ? energy / ratedPower * 60 : null,
-      estimatedCost
+      estimatedCost,
+      usesEstimatedPrice: Boolean(station.isEstimatedPrice)
     };
   }
 
@@ -292,7 +297,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   }
 
   function renderStations() {
-    const cards = state.stations.map(station => {
+    const cards = state.stations.slice(0, state.visibleStationCount).map(station => {
       const active = station.id === state.activeStation;
       const card = element('article', 'station-card');
       card.dataset.stationId = station.id;
@@ -302,7 +307,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       mark.append(icon());
       const info = element('div', 'station-info');
       info.append(element('h3', null, station.name), element('p', null, station.address));
-      top.append(mark, info, element('span', 'station-power', station.powerKw ? `${decimal.format(station.powerKw)} kW nominais` : 'Potência s/d'));
+      top.append(mark, info, element('span', 'station-power', station.powerKw ? `${decimal.format(station.powerKw)} kW` : 'Potência não cadastrada'));
 
       const tags = element('div', 'station-tags');
       tags.append(
@@ -313,22 +318,40 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       if (station.access === 'customers') tags.append(element('span', null, 'Acesso de clientes'));
       if (station.access === 'membership') tags.append(element('span', null, 'Requer cadastro'));
       if (station.access === 'notice') tags.append(element('span', null, 'Requer aviso prévio'));
+      if (Number.isFinite(station.pricePerKwh)) tags.append(element('span', station.isEstimatedPrice ? 'price-estimated' : 'price-published', station.isEstimatedPrice ? 'Média estimada' : 'Tarifa na fonte'));
 
       const metrics = element('div', 'station-metrics');
-      const price = Number.isFinite(station.pricePerKwh) ? money.format(station.pricePerKwh)
-        : station.tariffDetails?.length ? 'Veja as condições' : 'Não informada';
-      const chargingTime = station.estimatedMinutes === null ? 'Indisponível' : minutes(station.estimatedMinutes);
-      const cost = station.estimatedCost === null ? 'Indisponível' : money.format(station.estimatedCost);
+      const sessionOnly = !Number.isFinite(station.pricePerKwh) && station.canEstimateCost === true && Number.isFinite(station.activationFee);
+      const price = Number.isFinite(station.pricePerKwh) ? `${station.isEstimatedPrice ? '≈ ' : ''}${money.format(station.pricePerKwh)}`
+        : sessionOnly ? money.format(station.activationFee) : station.tariffDetails?.length ? 'Veja as condições' : 'Consulte a operadora';
+      const hasVehicle = Boolean(vehicles[vehicleInput.value]);
+      const chargingTime = station.estimatedMinutes === null ? hasVehicle ? 'Potência sem dados' : 'Escolha o carro' : minutes(station.estimatedMinutes);
+      const cost = station.estimatedCost === null ? hasVehicle ? 'Consulte condições' : 'Escolha o carro' : `${station.isEstimatedPrice ? '≈ ' : ''}${money.format(station.estimatedCost)}`;
       metrics.append(
-        metric(Number.isFinite(station.pricePerKwh) ? 'Tarifa cadastrada / kWh' : 'Tarifa publicada', price),
-        metric(`Tempo mínimo teórico · ${station.fromCharge}–${station.toCharge}%`, chargingTime),
+        metric(station.isEstimatedPrice ? 'Média estimada / kWh' : sessionOnly ? 'Preço por sessão' : Number.isFinite(station.pricePerKwh) ? 'Tarifa cadastrada / kWh' : 'Tarifa publicada', price),
+        metric(`Tempo mínimo · ${station.fromCharge}–${station.toCharge}%`, chargingTime),
         metric('Subtotal estimado da recarga', cost)
       );
       const select = element('button', 'station-select', active ? 'Selecionada no mapa' : 'Ver no mapa');
       select.type = 'button';
       select.setAttribute('aria-pressed', String(active));
+      select.setAttribute('aria-label', `Ver ${station.name} no mapa`);
       card.append(top, tags, metrics);
-      const fixedFee = Number.isFinite(station.activationFee) && station.activationFee > 0;
+      const evidence = element('details', 'station-evidence');
+      evidence.append(element('summary', null, station.isEstimatedPrice ? 'Como calculamos a média' : 'Preço e fonte'));
+      if (station.priceEstimate) {
+        const estimate = station.priceEstimate;
+        card.append(element('p', 'station-price-note', `${estimate.description} · ${estimate.sampleSize} ${estimate.sampleUnit}. Preço deste ponto não confirmado.`));
+        evidence.append(element('p', 'station-source-details', estimate.limitation));
+        evidence.append(element('p', 'station-source-details', `Datas da amostra: ${sourceDate(estimate.sampleOldestAt)} a ${sourceDate(estimate.sampleNewestAt)}. Cálculo: ${sourceDate(estimate.calculatedAt)}.`));
+        const links = element('div', 'estimate-reference-links');
+        for (const [index, url] of estimate.sourceUrls.slice(0, 5).entries()) {
+          links.append(externalLink(`Referência ${index + 1} · ${new URL(url).hostname}`, url, 'station-source'));
+        }
+        if (estimate.sourceUrls.length > 5) links.append(element('p', 'station-source-details', `Exibidas 5 das ${estimate.sourceUrls.length} fontes da amostra.`));
+        evidence.append(links);
+      }
+      const fixedFee = !sessionOnly && Number.isFinite(station.activationFee) && station.activationFee > 0;
       const idleFee = Number.isFinite(station.idleFeePerMinute);
       if (fixedFee || idleFee) {
         const components = element('div', 'station-metrics station-charges');
@@ -342,28 +365,28 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       card.append(select);
       if (station.tariffDetails?.length) {
         const details = element('div', 'station-tariff-details');
-        details.append(element('strong', null, 'Condições de cobrança publicadas'));
+        details.append(element('strong', null, station.isEstimatedPrice ? 'Dados usados na estimativa' : 'Condições de cobrança publicadas'));
         for (const term of station.tariffDetails) {
           const line = element('p');
           line.append(element('span', null, `${term.label} · `), term.value);
           details.append(line);
         }
-        card.append(details);
+        evidence.append(details);
       }
       if (/^https?:\/\//i.test(station.priceSourceUrl ?? '')) {
-        card.append(externalLink(`${station.priceSourceTitle || 'Fonte da tarifa'} ↗`, station.priceSourceUrl, 'station-source'));
+        if (!station.isEstimatedPrice) evidence.append(externalLink(`${station.priceSourceTitle || 'Fonte da tarifa'} ↗`, station.priceSourceUrl, 'station-source'));
         const priceDates = [
           sourceDate(station.pricePublishedAt) ? `Publicado em ${sourceDate(station.pricePublishedAt)}` : null,
           sourceDate(station.priceEffectiveFrom) ? `Vigência a partir de ${sourceDate(station.priceEffectiveFrom)}` : null,
-          sourceDate(station.priceSourceCheckedAt) ? `Fonte conferida em ${sourceDate(station.priceSourceCheckedAt)}` : null,
+          !station.isEstimatedPrice && sourceDate(station.priceSourceCheckedAt) ? `Fonte conferida em ${sourceDate(station.priceSourceCheckedAt)}` : null,
           typeof station.priceScope === 'string' ? station.priceScope : null
         ].filter(Boolean);
-        if (priceDates.length) card.append(element('p', 'station-source-details', priceDates.join(' · ')));
+        if (priceDates.length) evidence.append(element('p', 'station-source-details', priceDates.join(' · ')));
       }
       if (station.osmUrl) {
-        card.append(externalLink('Ver no OpenStreetMap ↗', station.osmUrl, 'station-source'));
+        evidence.append(externalLink('Ver no OpenStreetMap ↗', station.osmUrl, 'station-source'));
       } else if (station.isLive && station.ocmUrl) {
-        card.append(externalLink('Open Charge Map · API ↗', station.ocmUrl, 'station-source'));
+        evidence.append(externalLink('Open Charge Map · API ↗', station.ocmUrl, 'station-source'));
         const metadata = element('p', 'station-source-details');
         const source = [
           station.providerName,
@@ -373,14 +396,15 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
           sourceDate(station.fetchedAt) ? `Consultado em ${sourceDate(station.fetchedAt)}` : null
         ].filter(Boolean);
         metadata.textContent = source.join(' · ');
-        card.append(metadata);
+        evidence.append(metadata);
         if (/^https?:\/\//i.test(station.providerUrl ?? '')) {
-          card.append(externalLink('Fonte original ↗', station.providerUrl, 'station-source'));
+          evidence.append(externalLink('Fonte original ↗', station.providerUrl, 'station-source'));
         }
       } else if (station.id.startsWith('ocm-')) {
         const stationUrl = `https://openchargemap.org/site/poi/details/${station.id.slice(4)}`;
-        card.append(externalLink('Open Charge Map · base de abr/2026 ↗', stationUrl, 'station-source'));
+        evidence.append(externalLink('Open Charge Map · base de abr/2026 ↗', stationUrl, 'station-source'));
       }
+      card.append(evidence);
       return card;
     });
     const empty = !state.selectedRoute ? 'Calcule uma rota para consultar estações pelo caminho.'
@@ -388,6 +412,11 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       : state.stationsUnavailable ? 'O serviço de estações está indisponível. Tente consultar novamente.'
         : 'Nenhuma estação encontrada na base consultada perto desta rota.';
     stationList.replaceChildren(...(cards.length ? cards : [element('p', 'planner-empty', empty)]));
+    const more = byId('show-more-stations');
+    if (more) {
+      more.hidden = state.stations.length <= state.visibleStationCount;
+      more.textContent = `Mostrar mais ${Math.min(24, state.stations.length - state.visibleStationCount)} estações`;
+    }
     setText('station-count', !state.selectedRoute ? 'Aguardando rota' : state.stationsPending && !cards.length
       ? 'Buscando estações…'
       : `${state.stations.length} ${state.stations.length === 1 ? 'estação' : 'estações'}`);
@@ -401,6 +430,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   }
 
   function render() {
+    renderVehicleInfo();
     const route = state.routes.find(candidate => candidate.id === state.selectedRoute);
     if (!route) {
       renderRoutes();
@@ -411,7 +441,9 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     const vehicle = vehicles[vehicleInput.value];
     const charge = batteryInput?.valueAsNumber;
     const hasCharge = Number.isFinite(charge) && charge >= 0 && charge <= 100;
-    const stations = nearbyStations(route, combineStationSources());
+    const source = combineStationSources();
+    if (corridorCache?.route !== route || corridorCache.source !== source) corridorCache = { route, source, stations: nearbyStations(route, source) };
+    const stations = corridorCache.stations;
     const plan = vehicle && hasCharge ? chargingPlan(route, stations, vehicle, charge / 100) : null;
     state.stations = stations.map(station => {
       const recommendation = plan?.get(station.id);
@@ -424,8 +456,9 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       state.activeStation = null;
     }
     const stops = plan ? [...plan.values()] : null;
+    const estimatedPrices = stops?.filter(stop => stop.usesEstimatedPrice).length ?? 0;
     const totalCost = stops?.every(stop => stop.estimatedCost !== null)
-      ? money.format(stops.reduce((sum, stop) => sum + stop.estimatedCost, 0)) : '—';
+      ? `${estimatedPrices ? '≈ ' : ''}${money.format(stops.reduce((sum, stop) => sum + stop.estimatedCost, 0))}` : '—';
     const totalCharge = stops?.every(stop => stop.estimatedMinutes !== null)
       ? minutes(stops.reduce((sum, stop) => sum + stop.estimatedMinutes, 0)) : '—';
     setText('route-distance', distance(route.distanceKm));
@@ -437,16 +470,32 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
       : !hasCharge ? 'Informe a bateria na partida para calcular paradas e totais.'
       : state.stationsPending && !stations.length ? 'Buscando estações para calcular as paradas.'
       : plan
-      ? 'Planejamento com autonomia de referência do Inmetro, reserva de 10% e recarga de até 80% por parada.'
+      ? `Autonomia Inmetro · reserva de 10% · recarga de até 80%.${estimatedPrices ? ` Custo com média estimada em ${estimatedPrices} ${estimatedPrices === 1 ? 'parada' : 'paradas'}.` : ''}`
       : 'As estações compatíveis da base não permitem calcular uma sequência de paradas com reserva de 10%.');
     renderRoutes();
     renderStations();
     publishMap();
   }
 
+  function renderVehicleInfo() {
+    const vehicle = vehicles[vehicleInput.value];
+    const details = byId('vehicle-details');
+    const info = byId('vehicle-info');
+    if (!details || !info) return;
+    details.hidden = !vehicle;
+    if (!vehicle) return;
+    const basis = vehicle.capacityBasis === 'usable' ? 'útil' : 'nominal';
+    const spec = element('p', null, `${decimal.format(vehicle.capacity)} kWh ${basis} · ${vehicle.rangeKm} km Inmetro · AC ${decimal.format(vehicle.acKw)} kW / DC ${decimal.format(vehicle.dcKw)} kW.`);
+    info.replaceChildren(spec, externalLink(vehicle.sourceTitle || 'Ficha técnica da versão', vehicle.sourceUrl));
+    if (vehicle.capacityBasis !== 'usable') info.append(element('p', null, 'O cálculo usa a capacidade nominal publicada; a energia utilizável pode ser menor.'));
+    info.append(document.createTextNode(' · '), externalLink('Todas as fontes e versões', '/carros-eletricos/'));
+  }
+
   function selectStation(id, openMap = false) {
     if (!state.stations.some(station => station.id === id)) return;
     state.activeStation = id;
+    const index = state.stations.findIndex(station => station.id === id);
+    if (index >= state.visibleStationCount) state.visibleStationCount = Math.ceil((index + 1) / 24) * 24;
     renderStations();
     publishMap();
     if (openMap && routeMap) {
@@ -459,6 +508,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   function selectRoute(id, returnFocus = false) {
     if (!state.routes.some(route => route.id === id) || state.selectedRoute === id) return;
     state.selectedRoute = id;
+    state.visibleStationCount = 24;
     render();
     if (returnFocus) routeOptions.querySelector(`[data-route-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
   }
@@ -466,7 +516,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   function setResult({ origin, destination, routes }) {
     Object.assign(state, {
       origin, destination, routes, stationsPending: true, stationsUnavailable: false,
-      selectedRoute: routes[0].id, stationSource: [], liveOpenChargeMap: [], activeStation: null
+      selectedRoute: routes[0].id, stationSource: [], liveOpenChargeMap: [], activeStation: null, visibleStationCount: 24
     });
     const mapLabel = byId('map-mode')?.querySelector('span');
     if (mapLabel) mapLabel.textContent = 'MAPA DA ROTA';
@@ -764,6 +814,7 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
     const request = new AbortController();
     state.pending = request;
     const { signal } = request;
+    const snapshotReady = loadStationSnapshot();
     setBusy(true);
     showStatus(state.selectedRoute
       ? 'Consultando nova rota. O mapa mantém a última rota consultada durante a busca.'
@@ -777,14 +828,21 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
         throw new Error('Escolha uma origem e um destino diferentes.');
       }
       const routes = await fetchRoutes(origin, destination, signal);
+      await snapshotReady;
       if (signal.aborted) return;
       setResult({ origin, destination, routes });
       const snapshotAvailable = routes.some(route => nearbyStations(route, stationSnapshot).length > 0);
       showStatus('Rota consultada no OpenStreetMap. Buscando estações de recarga…', 'loading');
       if (snapshotAvailable) appendSnapshotSource();
       const [openStreetMap, openChargeMap] = await Promise.allSettled([
-        fetchStations(routes, signal),
-        fetchLiveOpenChargeMap(routes, signal)
+        fetchStations(routes, signal).then(stations => {
+          if (!signal.aborted) { state.stationSource = stations; render(); }
+          return stations;
+        }),
+        fetchLiveOpenChargeMap(routes, signal).then(data => {
+          if (!signal.aborted) { state.liveOpenChargeMap = data.stations; render(); }
+          return data;
+        })
       ]);
       if (signal.aborted) return;
       const osmAvailable = openStreetMap.status === 'fulfilled';
@@ -832,6 +890,11 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   byId('swap-route')?.addEventListener('click', () => {
     [originInput.value, destinationInput.value] = [destinationInput.value, originInput.value];
   });
+  document.querySelectorAll('[data-route-origin]').forEach(button => button.addEventListener('click', () => {
+    originInput.value = button.dataset.routeOrigin;
+    destinationInput.value = button.dataset.routeDestination;
+    submit.focus();
+  }));
   routeOptions.addEventListener('click', event => {
     const button = event.target.closest('button[data-route-id]');
     if (button) selectRoute(button.dataset.routeId, true);
@@ -839,6 +902,10 @@ import { applyPublishedTariffs } from './published-tariffs.mjs';
   stationList.addEventListener('click', event => {
     const button = event.target.closest('.station-select');
     if (button) selectStation(button.closest('[data-station-id]').dataset.stationId, true);
+  });
+  byId('show-more-stations')?.addEventListener('click', () => {
+    state.visibleStationCount += 24;
+    renderStations();
   });
   document.addEventListener('eletricities:station', event => selectStation(event.detail.id));
   document.addEventListener('eletricities:route', event => selectRoute(event.detail.id));

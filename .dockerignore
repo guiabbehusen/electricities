@@ -1,0 +1,8 @@
+.git
+.openai
+.env
+.env.*
+node_modules
+*.log
+dist/server
+dist/.openai

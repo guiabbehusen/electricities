@@ -102,6 +102,16 @@
   let drag;
   let suppressRouteClick = false;
   let selectedGeometry;
+  let tilesReady = typeof IntersectionObserver !== 'function';
+  let tileObserver;
+
+  function activateMapTiles() {
+    if (tilesReady) return;
+    tilesReady = true;
+    tileObserver?.disconnect();
+    tileObserver = null;
+    requestDraw();
+  }
 
   function project([latitude, longitude]) {
     const rad = clamp(latitude, -85.051128, 85.051128) * Math.PI / 180;
@@ -250,6 +260,7 @@
   }
 
   function drawTiles(width, height, size, topLeft) {
+    if (!tilesReady) return;
     if (!/^https?:$/.test(location.protocol)) {
       updateMapNotice();
       return;
@@ -337,6 +348,7 @@
   }
 
   function zoomBy(change) {
+    activateMapTiles();
     view.zoom = clamp(view.zoom + change, bounds.minZoom, bounds.maxZoom);
     requestDraw();
   }
@@ -350,7 +362,11 @@
 
   zoomIn.addEventListener('click', () => zoomBy(1));
   zoomOut.addEventListener('click', () => zoomBy(-1));
-  recenter.addEventListener('click', fitMap);
+  recenter.addEventListener('click', () => {
+    activateMapTiles();
+    fitMap();
+  });
+  host.addEventListener('focusin', activateMapTiles);
 
   scene.addEventListener('keydown', event => {
     if (event.target !== scene) return;
@@ -360,12 +376,14 @@
       ArrowUp: () => moveBy(0, -60), ArrowDown: () => moveBy(0, 60), Home: fitMap,
     };
     if (!Object.hasOwn(keys, event.key)) return;
+    activateMapTiles();
     event.preventDefault();
     keys[event.key]();
   });
 
   scene.addEventListener('pointerdown', event => {
     if (event.button !== 0 || !event.isPrimary || event.target.closest('button')) return;
+    activateMapTiles();
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
     suppressRouteClick = false;
   });
@@ -403,6 +421,7 @@
     data = next;
     selectedRoute = route;
     selectedGeometry = route?.coordinates;
+    if (selectedRoute) activateMapTiles();
     if (changedMarkers) prepareMarkers();
     selectMarker();
     if (changedRoute) {
@@ -416,4 +435,10 @@
   });
 
   new ResizeObserver(fitMap).observe(scene);
+  if (!tilesReady) {
+    tileObserver = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) activateMapTiles();
+    }, { rootMargin: '120px 0px' });
+    tileObserver.observe(host);
+  }
 })();

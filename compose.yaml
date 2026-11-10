@@ -1,0 +1,17 @@
+services:
+  electricities:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8766"
+      ALLOWED_HOSTS: eletricities.com,www.eletricities.com
+    ports:
+      - "127.0.0.1:8766:8766"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

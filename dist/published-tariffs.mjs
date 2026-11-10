@@ -1,4 +1,5 @@
-// Prices are factual publications manually checked on 2026-11-06. Each applies only to
+// Volvo's publication was rechecked on 2026-11-09; EVolt portals on 2026-11-06.
+// Each published tariff applies only to
 // the identified location/connector, with its original source and effective date.
 const volvoLocations = new Set([
   203264, 204433, 260426, 264456, 299167, 299175, 299177, 299178, 299236,
@@ -7,7 +8,8 @@ const volvoLocations = new Set([
 ].map(id => `ocm-${id}`));
 
 const volvoSource = 'https://www.volvocars.com/br/media/press-releases/BC28C2E96CE1476C/';
-const checkedAt = '2026-11-06';
+const checkedAt = '2026-11-09';
+const evoltCheckedAt = '2026-11-06';
 const volvoHighwayLocations = new Set([
   203264, 204433, 260426, 264456, 299177, 299178, 299237, 302217,
   460059, 460141, 460616, 461236, 470705
@@ -53,7 +55,7 @@ export function applyPublishedTariffs(stations) {
         priceSourceTitle: `EVoltBR · ${evolt.title}`,
         pricePublishedAt: null,
         priceEffectiveFrom: null,
-        priceSourceCheckedAt: checkedAt,
+        priceSourceCheckedAt: evoltCheckedAt,
         priceScope: `Conector esquerdo ID 2 · CCS2 · ${evolt.powerKw} kW`,
         tariffDetails: [
           { label: 'Energia no conector esquerdo ID 2', value: `R$ ${evolt.price.toFixed(2).replace('.', ',')}/kWh` },

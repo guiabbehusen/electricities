@@ -11,26 +11,38 @@
   <!-- End Google Tag Manager -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f8f2">
-  <meta name="description" content="Planeje viagens de carro elétrico, compare rotas e encontre estações de recarga pelo caminho.">
-  <meta property="og:title" content="Eletricities — A estrada é sua. A energia também.">
-  <meta property="og:description" content="Trace sua rota e descubra onde recarregar seu carro elétrico pelo caminho.">
-  <meta property="og:image" content="https://eletricities.ghs260.chatgpt.site/assets/hero.webp">
-  <title>Eletricities — Planeje sua viagem elétrica</title>
+  <meta name="description" content="Encontre pontos de recarga na sua rota, consulte preços publicados e estime custo e tempo de carga por modelo de carro elétrico. Planejador gratuito no Brasil.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Eletricities">
+  <meta property="og:title" content="Pontos de recarga e rotas para carros elétricos | Eletricities">
+  <meta property="og:description" content="Compare o caminho, veja onde recarregar e estime o custo da viagem com fontes identificadas.">
+  <meta property="og:image" content="https://eletricities.com/assets/social-preview.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="672">
+  <meta property="og:image:alt" content="Planejador Eletricities para rotas e pontos de recarga">
+  <link rel="canonical" href="https://eletricities.com/">
+  <meta property="og:url" content="https://eletricities.com/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pontos de recarga e rotas | Eletricities">
+  <meta name="twitter:description" content="Planeje a viagem de carro elétrico com preços publicados e estimativas identificadas.">
+  <meta name="twitter:image" content="https://eletricities.com/assets/social-preview.png">
+  <title>Pontos de recarga e rotas para carros elétricos | Eletricities</title>
   <link rel="icon" href="./assets/bolt.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="preload" href="./assets/hero.webp" as="image">
-  <link rel="stylesheet" href="./style.css?v=20261106">
+  <link rel="stylesheet" href="./style.css?v=20261109-content">
   <script src="./map.js" defer></script>
-  <script src="./stations-br.js" defer></script>
-  <script src="./planner.js?v=20261106-sources" type="module"></script>
+  <script src="./planner.js?v=20261109-content" type="module"></script>
+  <!-- STRUCTURED_DATA -->
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://eletricities.com/#website","url":"https://eletricities.com/","name":"Eletricities","inLanguage":"pt-BR"},{"@type":"WebApplication","@id":"https://eletricities.com/#app","name":"Eletricities","url":"https://eletricities.com/","description":"Planejador gratuito de rotas de carro elétrico no Brasil, com estações de recarga, preços publicados e estimativas identificadas de custo e tempo.","applicationCategory":"TravelApplication","operatingSystem":"Navegador web","browserRequirements":"Requer JavaScript e acesso à internet","inLanguage":"pt-BR","isAccessibleForFree":true,"offers":{"@type":"Offer","price":0,"priceCurrency":"BRL"}}]}</script>
+<!-- /STRUCTURED_DATA -->
 </head>
 <body>
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TR9GTJ45"
   height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M13.6 1.7a.7.7 0 0 1 1.25.53L13.8 9h5a.75.75 0 0 1 .6 1.2l-9 12a.7.7 0 0 1-1.25-.53L10.2 15h-5a.75.75 0 0 1-.6-1.2z"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
@@ -50,29 +62,37 @@
   <header id="inicio" class="site-header frame">
     <a href="#inicio" class="brand" aria-label="Eletricities, início"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>eletricities<span class="brand-period">.</span></a>
     <nav aria-label="Navegação principal">
-      <a href="#planejador">Explorar mapa</a>
-      <a href="#como-funciona">Como funciona</a>
+      <a href="#planejador">Planejador</a>
+      <a href="/precos-recarga/">Preços</a>
+      <a href="/carros-eletricos/">Carros</a>
+      <a href="/sobre-os-dados/">Fontes e cálculos</a>
     </nav>
     <a href="#planejador" class="button button-dark header-cta">Planejar rota <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg></a>
   </header>
-  <main>
+  <main id="conteudo">
     <section class="hero frame" aria-labelledby="hero-title">
       <div class="hero-content">
-        <div class="hero-kicker"><span></span> FEITO PARA A MOBILIDADE ELÉTRICA</div>
-        <h1 id="hero-title">A estrada é sua.<br><em>A energia também.</em></h1>
-        <p>Planeje sua viagem de carro elétrico. Encontre pontos de recarga, consulte as tarifas cadastradas e compare os tempos estimados.</p>
-        <a href="#planejador" class="button button-lime">Planejar minha viagem <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <div class="hero-kicker">ROTAS E RECARGA NO BRASIL</div>
+        <h1 id="hero-title">Onde recarregar<br>no seu <em>caminho.</em></h1>
+        <p>Informe a viagem e veja os pontos de recarga próximos da rota. Escolha o carro para estimar as paradas, o tempo e o custo.</p>
+        <div class="hero-actions"><a href="#planejador" class="button button-lime">Calcular minha rota <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a><a href="/precos-recarga/" class="text-link">Consultar preços publicados →</a></div>
+        <p class="hero-footnote">Uso gratuito. Preços com fonte; médias sinalizadas como estimativas.</p>
       </div>
-      <div class="hero-caption"><span class="hero-caption-line"></span><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg> DA CIDADE À ESTRADA</div>
+      <aside class="trip-brief" aria-labelledby="brief-title">
+        <div class="brief-top"><svg class="icon" aria-hidden="true"><use href="#i-route"/></svg><span>Antes de pegar a estrada</span></div>
+        <h2 id="brief-title">A recarga faz parte<br>da viagem.</h2>
+        <dl><div><dt>Seu trajeto</dt><dd>Rotas rodoviárias e pontos próximos ao caminho</dd></div><div><dt>Seu carro</dt><dd>Autonomia Inmetro e limites de carga da versão</dd></div><div><dt>Seu orçamento</dt><dd>Energia, taxa por sessão e referência de preço</dd></div></dl>
+        <a href="/sobre-os-dados/">Entenda as estimativas <span aria-hidden="true">↗</span></a>
+      </aside>
     </section>
 
     <section id="planejador" class="content-frame planner" aria-labelledby="planner-title">
       <div class="section-heading">
         <div>
-          <div class="eyebrow"><span></span> PLANEJADOR DE VIAGEM</div>
-          <h2 id="planner-title">Trace sua rota<span class="accent-period">.</span></h2>
+          <div class="eyebrow">PLANEJADOR</div>
+          <h2 id="planner-title">Qual é o destino?</h2>
         </div>
-        <p>Defina o destino e encontre pontos de recarga compatíveis com seu carro pelo caminho.</p>
+        <p>Comece pela origem e pelo destino. O carro e a bateria ajudam a calcular as recargas.</p>
       </div>
 
       <div class="planner-shell">
@@ -86,9 +106,11 @@
               <datalist id="city-suggestions"></datalist>
             </div>
             <label class="field"><span>Seu carro elétrico <small>(opcional)</small></span><span class="field-control"><svg class="icon" aria-hidden="true"><use href="#i-car"/></svg><select id="vehicle" aria-label="Modelo do carro elétrico"></select><svg class="icon select-arrow" aria-hidden="true"><use href="#i-down"/></svg></span></label>
+            <details id="vehicle-details" class="vehicle-details" hidden><summary>Dados do modelo</summary><div id="vehicle-info"></div></details>
             <label class="field"><span>Bateria na partida <small>(opcional)</small></span><span class="field-control"><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><input type="number" id="battery" min="0" max="100" step="1" inputmode="numeric" placeholder="Informe a carga atual"><span class="field-unit" aria-hidden="true">%</span></span></label>
             <button type="submit" class="button button-lime search-button">Calcular rota <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
           </form>
+          <div class="quick-routes" aria-label="Preencher um trajeto"><span>Trajetos frequentes</span><button type="button" data-route-origin="São Paulo, SP" data-route-destination="Rio de Janeiro, RJ">São Paulo → Rio</button><button type="button" data-route-origin="São Paulo, SP" data-route-destination="Curitiba, PR">São Paulo → Curitiba</button></div>
           <div class="route-results">
             <div class="routes-heading"><h4>Opções de rota</h4></div>
             <div id="route-options"></div>
@@ -110,42 +132,61 @@
       <p id="planner-status" class="planner-status" role="status" aria-live="polite">Informe a origem e o destino para buscar rotas e estações cadastradas.</p>
       <div class="estimates" aria-label="Estimativas de recarga">
         <div><svg class="icon" aria-hidden="true"><use href="#i-wallet"/></svg><span>Subtotal estimado da recarga</span><strong id="route-cost">—</strong></div>
-        <div><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>Tempo mínimo teórico de recarga</span><strong id="route-charge">—</strong></div>
+        <div><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>Tempo mínimo de recarga</span><strong id="route-charge">—</strong></div>
       </div>
       <p id="route-plan-note" class="planner-status"></p>
       <details class="estimate-sources">
         <summary>Como calculamos e quais dados usamos</summary>
-        <p>As paradas usam a autonomia Inmetro do modelo e a carga de saída selecionada. O tempo mínimo divide a energia necessária pela menor potência cadastrada entre o carro e o conector. A potência durante a sessão, a fila e as perdas podem aumentar a duração. O subtotal usa a tarifa de energia e a taxa fixa publicadas quando a regra de cobrança está completa. A taxa de ociosidade é exibida separadamente. Condições por horário ou valores ambíguos ficam disponíveis para consulta no cartão.</p>
-        <p>Referências dos veículos · <a href="https://www.byd.com/content/dam/byd-site/br/fichas-t%C3%A9cnicas---update-2025/agosto/Ficha_Tecnica_Dolphin_08_09_2025.pdf" target="_blank" rel="noopener noreferrer">BYD Dolphin</a> · <a href="https://www.byd.com/content/dam/byd-site/br/fichas-t%C3%A9cnicas---update-2025/agosto/Ficha_Tecnica_Dolphin_Mini_08_09_2025.pdf" target="_blank" rel="noopener noreferrer">BYD Dolphin Mini</a> · <a href="https://www.volvocars.com/br/media/press-releases/6BB4518DE21F69F5/" target="_blank" rel="noopener noreferrer">Autonomia Volvo EX30</a> · <a href="https://www.volvocars.com/images/cs/v3/assets/blt84e01a6904dbd2e8/bltdc4437137eec679e/681332dd924f57737f7a3d4b/EX30_Model_Year_25.5.pdf?branch=prod_alias" target="_blank" rel="noopener noreferrer">Ficha Volvo EX30 2025</a>.</p>
+        <p>As paradas usam a autonomia Inmetro, a bateria informada e uma reserva de 10%. O tempo mínimo considera a energia e a menor potência entre o carro e o conector; a sessão real pode demorar mais. O custo usa a tarifa publicada ou uma média identificada, com taxas conhecidas. Ociosidade, estacionamento e perdas de energia não entram no subtotal.</p>
+        <p><a href="/sobre-os-dados/">Veja as fórmulas, as limitações e o método das médias</a>. As especificações e fontes de cada versão estão no <a href="/carros-eletricos/">catálogo de carros</a>.</p>
       </details>
     </section>
 
     <section class="content-frame stations" aria-labelledby="stations-title">
       <div class="stations-heading">
-        <div><div class="eyebrow"><span></span> PARADAS NO CAMINHO</div><h2 id="stations-title">Onde recarregar<span class="accent-period">.</span></h2></div>
+        <div><div class="eyebrow">NA SUA ROTA</div><h2 id="stations-title">Pontos de recarga</h2></div>
         <span class="station-count"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span id="station-count">Pontos de recarga</span></span>
       </div>
       <div id="station-list"></div>
-      <p class="station-note"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg> Cada estação tem um link para o cadastro de origem. Confirme a tarifa vigente, o horário e a disponibilidade com o operador.</p>
+      <button id="show-more-stations" class="button show-more" type="button" hidden>Mostrar mais estações</button>
+      <p class="station-note"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg> “Média estimada” é uma referência para o orçamento. O preço final e a disponibilidade são definidos pela operadora.</p>
     </section>
 
-    <section id="como-funciona" class="how-section frame" aria-labelledby="how-title">
-      <div class="how-inner">
-        <div class="eyebrow"><span></span> COMO FUNCIONA</div>
-        <h2 id="how-title">Sua próxima viagem<br>em três passos<span class="accent-period">.</span></h2>
-        <ol class="steps">
-          <li><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-map"/></svg></span><span class="step-number">01</span><h3>Defina o caminho</h3><p>Informe origem e destino. Se houver rotas alternativas, compare a distância e o tempo de direção.</p></li>
-          <li><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-car"/></svg></span><span class="step-number">02</span><h3>Selecione seu carro</h3><p>Escolha o modelo e a carga de saída para estimar as recargas ao longo do trajeto.</p></li>
-          <li><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg></span><span class="step-number">03</span><h3>Confira suas paradas</h3><p>Veja os conectores, a potência e as estimativas antes de escolher onde recarregar.</p></li>
-        </ol>
-        <a href="#planejador" class="button button-lime">Planejar minha viagem <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
-      </div>
+    <section class="content-frame knowledge-preview" aria-labelledby="prices-title">
+      <div class="section-heading"><div><div class="eyebrow">PARA COMPARAR</div><h2 id="prices-title">Quanto custa recarregar?</h2></div><a href="/precos-recarga/" class="text-link">Ver preços e condições →</a></div>
+      <p class="section-intro">A cobrança pode combinar energia por kWh, ativação por sessão e ociosidade. Estas são referências publicadas; cada cartão da rota mostra se o valor está cadastrado para o ponto ou foi estimado.</p>
+      <!-- HOME_TARIFF_SUMMARY -->
+<div class="data-table-wrap" role="region" aria-label="Tabela com rolagem horizontal" tabindex="0"><table class="data-table"><caption>Preços de energia publicados para os escopos indicados. Valores de redes e de conectores individuais não se aplicam automaticamente a outros pontos.</caption>
+    <thead><tr><th scope="col">Rede ou local e escopo</th><th scope="col">Tipo</th><th scope="col">Energia</th><th scope="col">Fonte e datas</th></tr></thead><tbody><tr><th scope="row">Volvo Car Eletropostos<br><span class="reference-meta">Tabela da rede Volvo: carregadores rápidos DC</span></th>
+      <td>DC</td><td>R$ 2,90/kWh</td>
+
+      <td><a href="https://www.volvocars.com/br/media/press-releases/BC28C2E96CE1476C/" target="_blank" rel="noopener noreferrer">Volvo Car Brasil · tabela publicada</a><br><span class="reference-meta">Conferência: 09/11/2026 · Publicação: 02/06/2026 · Vigência desde 15/06/2026</span></td></tr><tr><th scope="row">Volvo Car Eletropostos<br><span class="reference-meta">Tabela da rede Volvo: carregadores de conveniência AC</span></th>
+      <td>AC</td><td>R$ 2,00/kWh</td>
+
+      <td><a href="https://www.volvocars.com/br/media/press-releases/BC28C2E96CE1476C/" target="_blank" rel="noopener noreferrer">Volvo Car Brasil · tabela publicada</a><br><span class="reference-meta">Conferência: 09/11/2026 · Publicação: 02/06/2026 · Vigência desde 15/06/2026</span></td></tr><tr><th scope="row">Celesc<br><span class="reference-meta">Rede pública Celesc em Santa Catarina: estações rápidas</span></th>
+      <td>DC</td><td>R$ 2,29/kWh</td>
+
+      <td><a href="https://celesc.com.br/listagem-noticias/celesc-trabalha-na-ampliacao-da-rede-de-eletropostos-na-grande-florianopolis" target="_blank" rel="noopener noreferrer">Celesc · publicação de junho de 2026</a><br><span class="reference-meta">Conferência: 09/11/2026 · Publicação: 09/06/2026</span></td></tr><tr><th scope="row">Celesc<br><span class="reference-meta">Rede pública Celesc em Santa Catarina: estações semirrápidas AC</span></th>
+      <td>AC</td><td>R$ 1,99/kWh</td>
+
+      <td><a href="https://celesc.com.br/listagem-noticias/celesc-trabalha-na-ampliacao-da-rede-de-eletropostos-na-grande-florianopolis" target="_blank" rel="noopener noreferrer">Celesc · publicação de junho de 2026</a><br><span class="reference-meta">Conferência: 09/11/2026 · Publicação: 09/06/2026</span></td></tr></tbody></table></div>
+<!-- /HOME_TARIFF_SUMMARY -->
+    </section>
+    <section class="content-frame reading-links" aria-label="Guias de recarga">
+      <a href="/carros-eletricos/"><span>CARROS ELÉTRICOS</span><h2>O modelo muda a recarga.</h2><p>Compare bateria, autonomia Inmetro e potência AC/DC por versão, com links para as fichas técnicas.</p><strong>Consultar o catálogo ↗</strong></a>
+      <a href="/sobre-os-dados/"><span>FONTES E CÁLCULOS</span><h2>De onde vem cada número.</h2><p>Entenda os preços publicados, as médias usadas no orçamento e o que entra nas estimativas da viagem.</p><strong>Conhecer o método ↗</strong></a>
+    </section>
+    <section class="content-frame faq-section" aria-labelledby="faq-title">
+      <div class="eyebrow">DÚVIDAS DE RECARGA</div><h2 id="faq-title">Antes de sair</h2>
+      <details><summary>Como encontrar eletropostos na minha rota?</summary><p>Preencha origem e destino no planejador. O mapa mostra estações cadastradas próximas do trajeto, com conector, potência e referência de preço. Confira no aplicativo da operadora se o ponto está em operação antes de sair.</p></details>
+      <details><summary>Por que o preço pode ser uma média?</summary><p>Nem todo cadastro traz uma tarifa por kWh que permita calcular o custo. Nesse caso, usamos a média de uma amostra identificada de preços do mesmo tipo de carga, AC ou DC. O cartão informa o critério, o número de referências e a data. A média não é uma oferta da estação.</p></details>
+      <details><summary>Por que o tempo real pode ser maior?</summary><p>A potência varia durante a carga e tende a diminuir perto da carga completa. Temperatura, limite do carro, limite do carregador e bateria na chegada também interferem. O tempo do Eletricities é um mínimo teórico; filas e paradas adicionais não entram na conta.</p></details>
     </section>
   </main>
   <footer class="site-footer content-frame">
     <a href="#inicio" class="brand" aria-label="Eletricities, voltar ao início"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>eletricities<span class="brand-period">.</span></a>
-    <span>Planejamento para viagens elétricas no Brasil.</span>
-    <a class="back-top" href="#inicio">Voltar ao topo <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg></a>
+    <span>Dados de <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap</a> e <a href="https://www.openchargemap.org/about/terms" rel="noopener noreferrer" target="_blank">Open Charge Map</a>. <a href="/sobre-os-dados/">Fontes e atualização</a>.</span>
+    <a class="back-top" href="https://github.com/guiabbehusen/electricities/issues" rel="noopener noreferrer" target="_blank">Informar um erro ↗</a>
   </footer>
   <noscript><div class="noscript">Ative o JavaScript para usar o planejador de viagens.</div></noscript>
 </body>
